@@ -118,6 +118,11 @@ has manager_listener => (
 sub _build_manager_listener {
     my $self = shift;
 
+    my ($uid,$gid) = (getpwnam('termcast'))[2,3];
+    chroot '.'; 
+    $> =  $uid;
+    $< = $gid;
+
     unlink $self->manager_listener_path;
     my $listener = IO::Socket::UNIX->new(
         Local => $self->manager_listener_path,
@@ -188,13 +193,19 @@ has kiokudb => (
     isa      => 'KiokuDB',
     builder  => '_build_kiokudb',
     init_arg => undef,
-    lazy     => 1,
+    lazy     => 0,
 );
 
 sub _build_kiokudb {
     my $self = shift;
     die "DSN must be provided" unless $self->dsn;
-    KiokuDB->connect($self->dsn, create => 1);
+    my $db = KiokuDB->connect($self->dsn, create => 1);
+    my $s = $db->new_scope;
+    $db->store('__dummy__' => {});
+    $db->lookup('__dummy__');
+    $db->delete('__dummy__');
+    crypt_password('test');
+    return $db;
 }
 
 has config => (
